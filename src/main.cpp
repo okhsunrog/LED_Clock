@@ -25,6 +25,7 @@
 #include <NTPClient.h>
 #include <TimeLib.h>
 #include <Dusk2Dawn.h>
+#include <EEPROM.h>
 
 #define PIN 14
 
@@ -33,11 +34,7 @@
 #define g_night 118
 #define b_night 33
 
-//brightness(0-255)
-#define NIGHT_BRIGHTNESS 128
-#define DAY_BRIGHTNESS 255
-
-//location
+//location for sunset & sinrise
 //current location is Moscow
 #define latitude 55.7075
 #define longitude 37.6038
@@ -46,8 +43,8 @@
 #define timezone 3
 
 //Wi-Fi SSID and password
-#define ssid  "my_wifi"
-#define password "password"
+#define ssid  "JustANet"
+#define password "wifi4you"
 
 //day colors (gradient)
 #define GRAD0_R 255
@@ -100,14 +97,15 @@ Dusk2Dawn location(latitude, longitude, timezone);
 byte i, r;
 byte a[5];
 boolean curState[28], night;
-byte hours, minutes, cDay = 100, cMinute = 100;
-int flicker, r1, g1, b1;
-int sSet, sRise, hrmin;
+byte hours, minutes, cDay = 100, cMinute = 100, br, br_day, br_night, prev_sec = 60;
+int flicker, r1, g1, b1, brightness;
+int sSet, sRise, hrmin, inputVal, prev_inputVal = 0;
 unsigned long eTime;
 
 void setDigit(byte place, byte digit);
 
 void setup() {
+  EEPROM.begin(2);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   while (WiFi.waitForConnectResult() != WL_CONNECTED) {
@@ -121,6 +119,9 @@ void setup() {
   strip.begin();
   strip.show();
   for(i=0;i<5;i++) a[i] = 140;
+  br_night = EEPROM.read(0);
+  br_day = EEPROM.read(1);
+  prev_inputVal = analogRead(A0);
 }
 
 void loop() {
@@ -144,9 +145,24 @@ void loop() {
     setDigit(3, minutes%10);
     cMinute = minutes;
   }
-
+  inputVal = analogRead(A0);
+    if (abs(inputVal - prev_inputVal) > 15){
+      prev_inputVal = inputVal;
+      brightness = (inputVal-20)/5;
+      if(brightness < 0) brightness = 0;
+      br = brightness + 55;
+      if(night){
+        br_night = br;
+        EEPROM.write(0, br_night);
+        EEPROM.commit();
+      } else {
+        br_day = br;
+        EEPROM.write(1, br_day);
+        EEPROM.commit();
+      }
+    }
   if(night){
-    strip.setBrightness(NIGHT_BRIGHTNESS);
+    strip.setBrightness(br_night);
     for(i=0; i<strip.numPixels(); i++) {
     flicker = random(0,55);
     r1 = r_night-flicker;
@@ -163,7 +179,7 @@ void loop() {
     strip.show();
     delay(random(10,113));
   } else {
-    strip.setBrightness(DAY_BRIGHTNESS);
+    strip.setBrightness(br_day);
 
   //Middle line L6
     strip.setPixelColor(0, GRAD6_R, GRAD6_G, GRAD6_B);
