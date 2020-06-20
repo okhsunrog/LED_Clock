@@ -25,7 +25,6 @@
 #include <NTPClient.h>
 #include <TimeLib.h>
 #include <Dusk2Dawn.h>
-#include <EEPROM.h>
 
 #define PIN 14
 
@@ -97,31 +96,26 @@ Dusk2Dawn location(latitude, longitude, timezone);
 byte i, r;
 byte a[5];
 boolean curState[28], night;
-byte hours, minutes, cDay = 100, cMinute = 100, br, br_day, br_night, prev_sec = 60;
+byte hours, minutes, cDay = 100, cMinute = 100, br;
 int flicker, r1, g1, b1, brightness;
-int sSet, sRise, hrmin, inputVal, prev_inputVal = 0;
+int sSet, sRise, hrmin, inputVal, prev_inputVal = 2000;
 unsigned long eTime;
 
 void setDigit(byte place, byte digit);
 
 void setup() {
-  EEPROM.begin(2);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   while (WiFi.waitForConnectResult() != WL_CONNECTED) {
     delay(5000);
     ESP.restart();
   }
-  ArduinoOTA.setPassword("adminclock");
   ArduinoOTA.begin();
   timeClient.begin();
   timeClient.setTimeOffset(timezone*3600);  
   strip.begin();
   strip.show();
   for(i=0;i<5;i++) a[i] = 140;
-  br_night = EEPROM.read(0);
-  br_day = EEPROM.read(1);
-  prev_inputVal = analogRead(A0);
 }
 
 void loop() {
@@ -146,23 +140,14 @@ void loop() {
     cMinute = minutes;
   }
   inputVal = analogRead(A0);
-    if (abs(inputVal - prev_inputVal) > 15){
-      prev_inputVal = inputVal;
-      brightness = (inputVal-20)/5;
-      if(brightness < 0) brightness = 0;
-      br = brightness + 55;
-      if(night){
-        br_night = br;
-        EEPROM.write(0, br_night);
-        EEPROM.commit();
-      } else {
-        br_day = br;
-        EEPROM.write(1, br_day);
-        EEPROM.commit();
-      }
-    }
+  if (abs(inputVal - prev_inputVal) > 15){
+    prev_inputVal = inputVal;
+    brightness = (inputVal-20)/5;
+    if(brightness < 0) brightness = 0;
+    br = brightness + 55;
+    strip.setBrightness(br);
+  }
   if(night){
-    strip.setBrightness(br_night);
     for(i=0; i<strip.numPixels(); i++) {
     flicker = random(0,55);
     r1 = r_night-flicker;
@@ -179,8 +164,6 @@ void loop() {
     strip.show();
     delay(random(10,113));
   } else {
-    strip.setBrightness(br_day);
-
   //Middle line L6
     strip.setPixelColor(0, GRAD6_R, GRAD6_G, GRAD6_B);
     strip.setPixelColor(1, GRAD6_R, GRAD6_G, GRAD6_B);
