@@ -42,8 +42,8 @@
 #define timezone 3
 
 //Wi-Fi SSID and password
-#define ssid  "JustANet"
-#define password "wifi4you"
+#define ssid  "something"
+#define password "something"
 
 //day colors (gradient)
 #define GRAD0_R 255
